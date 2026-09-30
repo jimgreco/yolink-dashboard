@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+*.secret.json
+connections.json
+node_modules/
+output/
+.DS_Store

@@ -1,0 +1,8 @@
+.git
+.env*
+*.secret.json
+connections.json
+output
+node_modules
+README.md
+test

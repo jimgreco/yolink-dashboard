@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#112739" />
+    <meta
+      name="description"
+      content="A private, read-only overview of YoLink devices across Manhattan and East Hampton."
+    />
+    <title>Home Watch · YoLink overview</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Home navigation">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">⌂</span
+          ><span>HOME<span class="brand-thin">WATCH</span></span>
+        </div>
+        <div class="side-group-label">OVERVIEW</div>
+        <a class="side-link selected" href="#top"
+          ><span class="nav-icon" aria-hidden="true">◫</span> All homes</a
+        >
+        <div class="side-group-label second-label">YOUR HOMES</div>
+        <a class="side-link" href="#manhattan"
+          ><span class="home-dot home-dot-blue" aria-hidden="true"></span>
+          Manhattan</a
+        >
+        <a class="side-link" href="#east-hampton"
+          ><span class="home-dot home-dot-sand" aria-hidden="true"></span> East
+          Hampton</a
+        >
+        <div class="side-bottom">
+          <span class="side-bottom-icon" aria-hidden="true">↗</span>
+          <div>
+            <strong>Read-only view</strong
+            ><small>Device controls stay in YoLink.</small>
+          </div>
+        </div>
+      </aside>
+
+      <div class="main-column" id="top">
+        <header class="topbar">
+          <div class="mobile-brand">HOME<span>WATCH</span></div>
+          <div class="topbar-trail">
+            Overview <span aria-hidden="true">/</span> All homes
+          </div>
+          <div class="topbar-right">
+            <span class="private-pill"
+              ><span aria-hidden="true">●</span> Private dashboard</span
+            ><a id="signout" class="signout" href="/auth/logout" hidden
+              >Sign out</a
+            >
+          </div>
+        </header>
+
+        <div class="sample-banner" id="sample-banner" hidden role="status">
+          <span class="sample-badge">SAMPLE MODE</span
+          ><span
+            >Illustrative devices and alerts. No YoLink account is
+            connected.</span
+          >
+        </div>
+        <div
+          class="sample-banner connection-banner"
+          id="connection-banner"
+          hidden
+          role="status"
+        >
+          <span class="sample-badge">NOT CONNECTED</span
+          ><span
+            >Google sign-in is active, but YoLink connection is pending. No live
+            device information is available.</span
+          >
+        </div>
+        <main class="content">
+          <div class="heading-row">
+            <div>
+              <p class="eyebrow">YOUR HOUSEHOLDS</p>
+              <h1>Both homes, one view.</h1>
+              <p class="heading-sub">
+                The things worth checking across Manhattan and East Hampton.
+              </p>
+            </div>
+            <div class="freshness-box">
+              <span class="freshness-icon" aria-hidden="true">↻</span>
+              <div>
+                <strong id="freshness-title">Loading status</strong
+                ><small id="freshness-detail"
+                  >Checking the latest available view</small
+                >
+              </div>
+            </div>
+          </div>
+
+          <section class="summary-grid" aria-label="Status summary">
+            <div class="summary-card attention-card">
+              <div class="summary-top">
+                <span>NEEDS ATTENTION</span
+                ><span class="summary-glyph attention-glyph" aria-hidden="true"
+                  >!</span
+                >
+              </div>
+              <div class="summary-bottom">
+                <strong id="attention-count">—</strong
+                ><span id="attention-copy">Checking devices</span>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-top">
+                <span>DEVICES</span
+                ><span class="summary-glyph" aria-hidden="true">▦</span>
+              </div>
+              <div class="summary-bottom">
+                <strong id="device-count">—</strong
+                ><span id="device-copy">Across both homes</span>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-top">
+                <span>HOMES</span
+                ><span class="summary-glyph" aria-hidden="true">⌂</span>
+              </div>
+              <div class="summary-bottom">
+                <strong id="home-count">—</strong
+                ><span id="home-copy">In one place</span>
+              </div>
+            </div>
+          </section>
+
+          <section
+            class="attention-section"
+            aria-labelledby="attention-heading"
+          >
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">PRIORITY CHECK</p>
+                <h2 id="attention-heading">Needs attention</h2>
+              </div>
+              <span class="section-count" id="attention-label">— items</span>
+            </div>
+            <div class="attention-list" id="attention-list">
+              <div class="loading-row">Loading device status…</div>
+            </div>
+          </section>
+
+          <section class="devices-section" aria-labelledby="devices-heading">
+            <div class="section-heading devices-heading">
+              <div>
+                <p class="eyebrow">DEVICE DIRECTORY</p>
+                <h2 id="devices-heading">Homes &amp; devices</h2>
+              </div>
+              <div class="filters" role="group" aria-label="Filter devices">
+                <button
+                  type="button"
+                  class="filter active"
+                  data-filter="all"
+                  aria-pressed="true"
+                >
+                  All devices</button
+                ><button
+                  type="button"
+                  class="filter"
+                  data-filter="attention"
+                  aria-pressed="false"
+                >
+                  Attention</button
+                ><button
+                  type="button"
+                  class="filter"
+                  data-filter="leak"
+                  aria-pressed="false"
+                >
+                  Leak sensors
+                </button>
+              </div>
+            </div>
+            <div id="homes"><div class="loading-row">Loading homes…</div></div>
+          </section>
+
+          <footer class="footer">
+            <span
+              >Home Watch <span aria-hidden="true">·</span> Read-only YoLink
+              overview</span
+            ><span
+              >Device reports can be older than the latest dashboard
+              check.</span
+            >
+          </footer>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
