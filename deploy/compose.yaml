@@ -1,0 +1,27 @@
+services:
+  yolink-dashboard:
+    image: ${YOLINK_IMAGE:?Set the exact release image}
+    restart: unless-stopped
+    env_file: ./private/runtime.env
+    expose: ["4318"]
+    read_only: true
+    tmpfs: ["/tmp:size=16m"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    cpus: 0.35
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4318/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 15s
+    networks:
+      shared:
+        aliases: ["yolink-dashboard"]
+
+networks:
+  shared:
+    external: true
+    name: deploy_default

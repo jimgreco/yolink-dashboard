@@ -1,8 +1,9 @@
 .git
 .env*
-*.secret.json
 connections.json
-output
 node_modules
+output
 README.md
 test
+**/*.secret.json
+**/private

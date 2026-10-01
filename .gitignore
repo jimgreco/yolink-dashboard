@@ -6,3 +6,5 @@ connections.json
 node_modules/
 output/
 .DS_Store
+private/
+__pycache__/
