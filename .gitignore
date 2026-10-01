@@ -5,6 +5,7 @@
 connections.json
 node_modules/
 output/
+.playwright-cli/
 .DS_Store
 private/
 __pycache__/
