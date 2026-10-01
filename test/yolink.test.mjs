@@ -76,6 +76,8 @@ test("home ID mismatch stops before device list or state requests", async () => 
 test("poll uses only read methods and strips net tokens from normalized output", async () => {
   const methods = [];
   const fetcher = async (url, options) => {
+    assert.equal(new URL(url).protocol, "https:");
+    assert.equal(options.redirect, "error");
     if (url.endsWith("/token"))
       return { ok: true, json: async () => ({ access_token: "token" }) };
     const method = JSON.parse(options.body).method;

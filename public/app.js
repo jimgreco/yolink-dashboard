@@ -1,3 +1,4 @@
+import { deviceFreshness } from "/status.js";
 const byId = (id) => document.getElementById(id);
 const make = (tag, className, value) => {
   const node = document.createElement(tag);
@@ -10,8 +11,7 @@ const append = (parent, ...children) => {
   return parent;
 };
 const age = (iso) => (iso ? Math.max(0, Date.now() - Date.parse(iso)) : null);
-const stale = (device) =>
-  device.reportAt && age(device.reportAt) > 60 * 60 * 1000;
+const stale = (device) => deviceFreshness(device).reportStale;
 let dashboard = null;
 let filter = "all";
 
@@ -63,6 +63,10 @@ function issues(device) {
       detail: "Latest device report is over an hour old",
       symbol: "◷",
     });
+  if (deviceFreshness(device).reportUnknown)
+    result.push({ kind: "unknown", label: "Report time unknown", detail: "The device did not provide a report time", symbol: "?" });
+  if (deviceFreshness(device).checkStale && device.stateAvailable)
+    result.push({ kind: "stale", label: "Check overdue", detail: "No successful state check in the last ten minutes", symbol: "◷" });
   return result;
 }
 
@@ -154,6 +158,8 @@ function matches(device) {
 }
 
 function renderDevice(device) {
+  const freshness = deviceFreshness(device);
+  const current = !freshness.reportStale && !freshness.checkStale && !freshness.reportUnknown;
   const row = make("div", "device-row");
   const identity = make("div", "device-name-wrap");
   const icon = make(
@@ -179,19 +185,21 @@ function renderDevice(device) {
     ? "alert"
     : device.online === false
       ? "offline"
-      : !device.stateAvailable
+      : !device.stateAvailable || !current
         ? "unknown"
         : "";
   const reading = make("div", `device-reading ${statusType}`);
   const statusText = device.leaking
-    ? device.stateAvailable
+    ? device.stateAvailable && current
       ? "Water detected"
       : "Last alert: water"
     : device.online === false
       ? "Offline"
       : !device.stateAvailable
         ? "State unknown"
-        : device.reading || "Available";
+        : !current
+          ? `Last report: ${device.reading || "Available"}`
+          : device.reading || "Available";
   append(reading, make("span", "status-dot"), make("span", "", statusText));
   const battery = make(
     "div",
@@ -220,7 +228,7 @@ function renderHomes(homes) {
       make(
         "div",
         "empty-home",
-        "No YoLink homes are connected to this Google account yet. Connection setup is pending YoSmart app access.",
+        "Your personal YoLink connection is not set up yet. Add it privately from your Mac; no live device data is available.",
       ),
     );
     return;
@@ -297,12 +305,12 @@ function render() {
   const sample = dashboard.mode === "sample";
   byId("sample-banner").hidden = !sample;
   byId("connection-banner").hidden =
-    sample || dashboard.connectionStatus !== "pending_vendor_access";
+    sample || dashboard.connectionStatus !== "personal_setup_required";
   byId("signout").hidden = sample;
   const homes = dashboard.homes || [];
   byId("freshness-title").textContent = sample
     ? "Sample preview"
-    : dashboard.connectionStatus === "pending_vendor_access"
+    : dashboard.connectionStatus === "personal_setup_required"
       ? "Not connected"
       : dashboard.loading
         ? "Connecting…"
@@ -311,7 +319,7 @@ function render() {
           : "No live check yet";
   byId("freshness-detail").textContent = sample
     ? "Times shown are illustrative"
-    : dashboard.connectionStatus === "pending_vendor_access"
+    : dashboard.connectionStatus === "personal_setup_required"
       ? "No live YoLink data"
       : "Device reports have separate times";
   renderSummary(homes);

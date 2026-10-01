@@ -48,6 +48,7 @@ test("store uses the signed-in Google subject for every user query", async () =>
     queries.find((item) => item.sql.includes("last_attempt_at=now()")).sql,
     /WHERE owner_sub=\$1/,
   );
+  assert.match(queries.find(item => item.sql.includes("last_attempt_at=now()")).sql, /last_attempt_at < now\(\) - interval '5 minutes'/);
 });
 
 test("snapshot exposes no credential fields", () => {

@@ -1,7 +1,7 @@
 // Run inside a temporary, unexposed production-image container on EC2.
 // No external provider calls. All database fixtures roll back.
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import pg from "pg";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
@@ -35,6 +35,7 @@ try {
 // become deployment configuration or reach Google's servers.
 process.env.GOOGLE_CLIENT_ID ||= "deployment-smoke.apps.googleusercontent.com";
 process.env.GOOGLE_CLIENT_SECRET ||= "deployment-smoke-placeholder";
+process.env.OWNER_GOOGLE_EMAIL ||= "owner@example.invalid";
 const { server } = await import("./server.mjs");
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -47,6 +48,17 @@ try {
   const page = await fetch(origin, { redirect: "manual" });
   assert.equal(page.status, 302);
   assert.equal(page.headers.get("location"), "/auth/start");
+  const signedRequest = email => {
+    const payload = Buffer.from(JSON.stringify({ sub: "temporary-smoke-subject", email, exp: Date.now() + 60000 })).toString("base64url");
+    const signature = createHmac("sha256", process.env.SESSION_SECRET).update(payload).digest("base64url");
+    return { headers: { cookie: `yl_session=${payload}.${signature}` }, redirect: "manual" };
+  };
+  const outsider = await fetch(`${origin}/api/v1/dashboard`, signedRequest("outsider@example.invalid"));
+  assert.equal(outsider.status, 401);
+  // Static-page access verifies the owner's session without inserting a fake
+  // owner subject into the production users table.
+  const ownerPage = await fetch(origin, signedRequest(process.env.OWNER_GOOGLE_EMAIL));
+  assert.equal(ownerPage.status, 200);
   const invalid = await fetch(`${origin}/auth/callback?state=invalid&code=invalid`, { redirect: "manual" });
   assert.equal(invalid.status, 403);
   const methods = await fetch(`${origin}/api/v1/dashboard`, { method: "POST" });
@@ -54,8 +66,8 @@ try {
   const { dashboardFromRows } = await import("./lib/store.mjs");
   const disconnected = dashboardFromRows([]);
   assert.deepEqual(disconnected.homes, []);
-  assert.equal(disconnected.connectionStatus, "pending_vendor_access");
-  console.log("PASS: cloud database health; unauthenticated API denied; page requires sign-in; invalid OAuth callback rejected; write HTTP method rejected; disconnected state has no sample homes.");
+  assert.equal(disconnected.connectionStatus, "personal_setup_required");
+  console.log("PASS: cloud database health; unauthenticated and signed non-owner API denied; owner session can open page; invalid OAuth callback rejected; write HTTP method rejected; disconnected state has no sample homes. No synthetic owner record created.");
 } finally {
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));

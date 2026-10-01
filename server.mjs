@@ -62,6 +62,8 @@ function staticFile(pathname) {
         ? "app.js"
         : pathname === "/styles.css"
           ? "styles.css"
+          : pathname === "/status.js"
+            ? "status.js"
           : null;
   if (!name) return null;
   const type = name.endsWith(".html")
@@ -115,7 +117,7 @@ export const server = createServer(async (request, response) => {
         return reply(
           response,
           403,
-          "Sign-in could not be completed. Start again at /auth/start.",
+          "This private dashboard is available only to its owner. Sign in with the configured Google account at /auth/start.",
         );
       }
     }

@@ -66,6 +66,9 @@ def main():
         }
         atomic_private(ENV, "".join(f"{key}={value}\n" for key, value in values.items()))
     values = dict(line.split("=", 1) for line in ENV.read_text().splitlines() if "=" in line)
+    if not values.get("OWNER_GOOGLE_EMAIL"):
+        values["OWNER_GOOGLE_EMAIL"] = "jgreco@gmail.com"
+        atomic_private(ENV, "".join(f"{key}={value}\n" for key, value in values.items()))
     password = urlsplit(values["DATABASE_URL"]).password
     if not password or any(c not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" for c in password):
         raise RuntimeError("Unexpected database password format; no changes applied.")
@@ -78,13 +81,15 @@ GRANT CONNECT ON DATABASE yolink_dashboard TO yolink_dashboard_app;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO yolink_dashboard_app;
 """, "yolink_dashboard")
-    sql((SOURCE / "db/001_initial.sql").read_text(), "yolink_dashboard")
+    for migration in sorted((SOURCE / "db").glob("*.sql")):
+        sql(migration.read_text(), "yolink_dashboard")
     sql("""GRANT SELECT, INSERT, UPDATE ON dashboard_users, dashboard_snapshots TO yolink_dashboard_app;
 GRANT SELECT ON yolink_connections TO yolink_dashboard_app;
 GRANT UPDATE (last_attempt_at) ON yolink_connections TO yolink_dashboard_app;
 """, "yolink_dashboard")
     shutil.copyfile(SOURCE / "deploy/compose.yaml", ROOT / "compose.yaml")
     shutil.copyfile(SOURCE / "deploy/install-google.py", ROOT / "install-google.py")
+    shutil.copyfile(SOURCE / "deploy/personal-setup.py", ROOT / "personal-setup.py")
     print("Dedicated YoLink database, restricted role, and private server secrets prepared.")
     if not values.get("GOOGLE_CLIENT_ID") or not values.get("GOOGLE_CLIENT_SECRET"):
         print("Google OAuth credentials absent; application startup remains blocked until secure user handoff.")
