@@ -14,7 +14,10 @@ Compose file is not changed. The database is `yolink_dashboard`, owned by the
 existing database administrator; the app role has no schema ownership or RLS
 bypass and is limited to three connections.
 
-Run `python3 deploy/bootstrap.py` from a release on EC2 to prepare this namespace.
+For a new empty namespace only, `python3 deploy/bootstrap.py` provisions it.
+The already provisioned October 7 namespace must instead use the exact additive
+[session activation packet](SESSION_ACTIVATION.md) after coordinator approval;
+do not rerun bootstrap for that release.
 The bootstrap refuses a pre-existing database/role unless its own private marker
 exists. Generated database/session/encryption secrets stay in
 `~/yolink-dashboard/private/runtime.env` with mode 0600, inside a 0700 directory.

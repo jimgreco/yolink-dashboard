@@ -1,7 +1,7 @@
 // Run inside a temporary, unexposed production-image container on EC2.
 // No external provider calls. All database fixtures roll back.
 import assert from "node:assert/strict";
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomUUID, randomBytes } from "node:crypto";
 import pg from "pg";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
@@ -12,20 +12,29 @@ try {
   const { rows: policies } = await client.query("SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname=ANY($1)", [["dashboard_users", "yolink_connections", "dashboard_snapshots", "dashboard_sessions"]]);
   assert.equal(policies.length, 4);
   assert(policies.every(row => row.relrowsecurity && row.relforcerowsecurity));
+  const {rows: [grants]} = await client.query("SELECT has_table_privilege(current_user,'public.dashboard_sessions','SELECT') AS read, has_table_privilege(current_user,'public.dashboard_sessions','INSERT') AS insert, has_table_privilege(current_user,'public.dashboard_sessions','DELETE') AS delete, has_table_privilege(current_user,'public.dashboard_sessions','UPDATE') AS update, has_table_privilege(current_user,'public.dashboard_sessions','TRUNCATE') AS truncate");
+  assert.deepEqual(grants, {read:true, insert:true, delete:true, update:false, truncate:false});
   await client.query("BEGIN");
   const first = `smoke-${randomUUID()}`;
   const second = `smoke-${randomUUID()}`;
   await client.query("SELECT set_config('app.user_sub',$1,true)", [first]);
   await client.query("INSERT INTO dashboard_users(google_sub,email) VALUES($1,'smoke@example.invalid')", [first]);
   assert.equal((await client.query("SELECT google_sub FROM dashboard_users")).rowCount, 1);
+  const sessionHash = randomBytes(32).toString("hex");
+  await client.query("INSERT INTO dashboard_sessions(owner_sub,token_hash,expires_at) VALUES($1,$2,now()+interval '8 hours')", [first,sessionHash]);
+  assert.equal((await client.query("SELECT token_hash FROM dashboard_sessions")).rowCount, 1);
   await client.query("SELECT set_config('app.user_sub',$1,true)", [second]);
+  assert.equal((await client.query("SELECT token_hash FROM dashboard_sessions")).rowCount, 0);
+  assert.equal((await client.query("DELETE FROM dashboard_sessions")).rowCount, 0);
   assert.equal((await client.query("SELECT google_sub FROM dashboard_users")).rowCount, 0);
   await client.query("SAVEPOINT reject_cross_user");
   await assert.rejects(client.query("INSERT INTO dashboard_users(google_sub,email) VALUES($1,'smoke@example.invalid')", [first]), error => error.code === "42501");
   await client.query("ROLLBACK TO SAVEPOINT reject_cross_user");
+  await client.query("SELECT set_config('app.user_sub',$1,true)", [first]);
+  assert.equal((await client.query("DELETE FROM dashboard_sessions WHERE token_hash=$1",[sessionHash])).rowCount, 1);
   await client.query("ROLLBACK");
   assert.equal((await client.query("SELECT google_sub FROM dashboard_users")).rowCount, 0);
-  console.log("PASS: dedicated restricted role; enforced RLS; own-row visibility; cross-user read/write blocked; no context denied; fixtures rolled back.");
+  console.log("PASS: dedicated restricted role; enforced RLS; session insert/read/delete grants; own-row visibility; cross-user read/write blocked; no context denied; fixtures rolled back.");
 } finally {
   client.release();
   await pool.end();

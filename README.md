@@ -49,7 +49,8 @@ signed-out page avoids immediately starting another Google login.
 
 Apply additive migration `db/003_browser_sessions.sql` only to
 `yolink_dashboard`, then grant the existing restricted role SELECT/INSERT/DELETE
-on `dashboard_sessions` as specified by `deploy/bootstrap.py`. Forced row-level
+on `dashboard_sessions` using the guarded [activation transaction and retention
+plan](deploy/SESSION_ACTIVATION.md), without rerunning bootstrap. Forced row-level
 security scopes this table like the existing owner data. Startup and health
 verify the sessions table and SELECT grant; database queries are time bounded. Never roll back to the
 old stateless-cookie image after accepting this session contract; prepare a
@@ -74,7 +75,8 @@ owner configuration, public HTTPS and real login still require handoff/acceptanc
 The current personal route is documented by [YoSmart](https://doc.yosmart.com/docs/overall/qsg_uac/)
 and is Home-scoped; commercial registration is unnecessary for this design.
 
-Local validation: `npm run check` passes 20 tests when
+Local validation: `npm run check` passes 21 tests (the separate activation
+fixture test skips in that invocation) when
 `HOME_WATCH_TEST_DATABASE_URL` names a fresh loopback-only database whose name
 begins `home_watch_test_`. This includes actual PostgreSQL migrations and forced
 RLS, two-store session revocation, concurrent refresh claims, failed reads,
@@ -83,3 +85,11 @@ test skips when its explicit local fixture URL is absent; it refuses nonlocal
 hosts or production-like database names. Browser fixture inspection covers
 390-pixel phone width and both sign-out controls. No real Google or YoLink call
 was made by these tests.
+
+The activation SQL has a separate marked, isolated PostgreSQL fixture test.
+`HOME_WATCH_ACTIVATION_TEST_DATABASE_URL` must use an ephemeral loopback port,
+user `admin`, database `yolink_dashboard`, and database comment
+`ops-activation-synthetic-only`. It requires an empty disposable local cluster,
+creates only synthetic users and a restricted test role, and checks atomic guard
+failure, unchanged baseline rows, exact grants, RLS, replay refusal and wrong-DB
+refusal. Never point this test at the shared host.
