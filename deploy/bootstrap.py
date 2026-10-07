@@ -84,6 +84,7 @@ GRANT USAGE ON SCHEMA public TO yolink_dashboard_app;
     for migration in sorted((SOURCE / "db").glob("*.sql")):
         sql(migration.read_text(), "yolink_dashboard")
     sql("""GRANT SELECT, INSERT, UPDATE ON dashboard_users, dashboard_snapshots TO yolink_dashboard_app;
+GRANT SELECT, INSERT, DELETE ON dashboard_sessions TO yolink_dashboard_app;
 GRANT SELECT ON yolink_connections TO yolink_dashboard_app;
 GRANT UPDATE (last_attempt_at) ON yolink_connections TO yolink_dashboard_app;
 """, "yolink_dashboard")

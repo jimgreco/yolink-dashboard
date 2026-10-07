@@ -9,8 +9,8 @@ const client = await pool.connect();
 try {
   const { rows: [role] } = await client.query("SELECT rolsuper, rolbypassrls, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname=current_user");
   assert.deepEqual(role, { rolsuper: false, rolbypassrls: false, rolcreatedb: false, rolcreaterole: false });
-  const { rows: policies } = await client.query("SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname=ANY($1)", [["dashboard_users", "yolink_connections", "dashboard_snapshots"]]);
-  assert.equal(policies.length, 3);
+  const { rows: policies } = await client.query("SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname=ANY($1)", [["dashboard_users", "yolink_connections", "dashboard_snapshots", "dashboard_sessions"]]);
+  assert.equal(policies.length, 4);
   assert(policies.every(row => row.relrowsecurity && row.relforcerowsecurity));
   await client.query("BEGIN");
   const first = `smoke-${randomUUID()}`;
@@ -55,10 +55,10 @@ try {
   };
   const outsider = await fetch(`${origin}/api/v1/dashboard`, signedRequest("outsider@example.invalid"));
   assert.equal(outsider.status, 401);
-  // Static-page access verifies the owner's session without inserting a fake
-  // owner subject into the production users table.
+  // Legacy stateless owner cookies must fail closed; a real browser login is separate acceptance.
   const ownerPage = await fetch(origin, signedRequest(process.env.OWNER_GOOGLE_EMAIL));
-  assert.equal(ownerPage.status, 200);
+  assert.equal(ownerPage.status, 302);
+  assert.equal(ownerPage.headers.get("location"), "/auth/start");
   const invalid = await fetch(`${origin}/auth/callback?state=invalid&code=invalid`, { redirect: "manual" });
   assert.equal(invalid.status, 403);
   const methods = await fetch(`${origin}/api/v1/dashboard`, { method: "POST" });
@@ -67,7 +67,7 @@ try {
   const disconnected = dashboardFromRows([]);
   assert.deepEqual(disconnected.homes, []);
   assert.equal(disconnected.connectionStatus, "personal_setup_required");
-  console.log("PASS: cloud database health; unauthenticated and signed non-owner API denied; owner session can open page; invalid OAuth callback rejected; write HTTP method rejected; disconnected state has no sample homes. No synthetic owner record created.");
+  console.log("PASS: cloud database health; unauthenticated and signed non-owner API denied; legacy owner cookie rejected; invalid OAuth callback rejected; write HTTP method rejected; disconnected state has no sample homes. No synthetic owner record created.");
 } finally {
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));

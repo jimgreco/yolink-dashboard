@@ -50,9 +50,10 @@
           <div class="topbar-right">
             <span class="private-pill"
               ><span aria-hidden="true">●</span> Private dashboard</span
-            ><a id="signout" class="signout" href="/auth/logout" hidden
-              >Sign out</a
-            >
+            ><form id="signout" method="post" action="/auth/logout" hidden>
+              <button class="signout" type="submit">Sign out</button>
+              <button class="signout" type="submit" formaction="/auth/logout/all">Sign out all browsers</button>
+            </form>
           </div>
         </header>
 

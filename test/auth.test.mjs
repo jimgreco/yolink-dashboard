@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, createSign, generateKeyPairSync } from "node:crypto";
-import { authenticate, authConfig, verifyGoogleIdToken } from "../lib/auth.mjs";
+import { authenticate, authConfig, verifyGoogleIdToken, beginLogin, completeLogin } from "../lib/auth.mjs";
 
 const config = authConfig({
   PUBLIC_ORIGIN: "https://yolink.jim-greco.com",
@@ -76,6 +76,31 @@ test("Google tokens need a valid signature, audience, verified email, and nonce"
       }),
     /authorized/,
   );
+  const login = beginLogin(config);
+  const authUrl = new URL(login.url);
+  const callback = new URL(config.origin + '/auth/callback');
+  callback.searchParams.set('state', authUrl.searchParams.get('state'));
+  callback.searchParams.set('code', 'synthetic-code');
+  let registered;
+  let exchanges = 0;
+  const registry = {
+    createSession: async (identity, hash, exp) => { registered = {identity,hash,exp}; },
+    isSessionActive: async (identity,hash) => identity.sub === registered.identity.sub && hash === registered.hash,
+  };
+  const tokenFetcher = async (url, options) => {
+    if (!url.endsWith('/token')) return fetcher();
+    exchanges++;
+    assert.equal(options.redirect, 'error');
+    assert.equal(options.body.get('grant_type'), 'authorization_code');
+    assert.ok(options.body.get('code_verifier'));
+    return {ok:true,json:async()=>({id_token:signed({nonce:authUrl.searchParams.get('nonce')})})};
+  };
+  const cookie = await completeLogin(callback,login.cookie,config,tokenFetcher,registry);
+  assert.equal((await authenticate({headers:{cookie}},config,undefined,registry)).sub,'google-sub');
+  assert.match(registered.hash,/^[a-f0-9]{64}$/);
+  await assert.rejects(completeLogin(callback,login.cookie,config,tokenFetcher,registry),/expired or invalid/);
+  assert.equal(exchanges,1);
+
 });
 
 test("cloud auth refuses a non-HTTPS origin or weak session key", () => {
@@ -114,7 +139,7 @@ test("private auth fails closed without one owner and rejects old non-owner sess
     const signature = createHmac("sha256", config.sessionSecret).update(payload).digest("base64url");
     return { headers: { cookie: `yl_session=${payload}.${signature}` } };
   }
-  assert.deepEqual(await authenticate(request("person@example.com"), config), { sub: "google-sub", email: "person@example.com" });
+  assert.equal(await authenticate(request("person@example.com"), config), null); // Legacy stateless cookies must reauthenticate.
   assert.equal(await authenticate(request("outsider@example.com"), config), null);
   assert.equal(await authenticate(request("person@example.com", null), config), null);
   assert.equal(await authenticate(request("person@example.com"), { ...config, ownerEmail: "replacement@example.com" }), null);

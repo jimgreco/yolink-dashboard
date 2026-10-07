@@ -72,3 +72,12 @@ Verify public HTTPS, unauthenticated API 401, owner-only Google login, empty dis
 state, no sample homes, and existing app health. Browser login and future native
 iOS auth remain separate acceptance tests. Stop/rollback only the YoLink Compose
 project if a release fails; do not restart or prune the shared stack.
+
+Session release prerequisite: apply the additive sessions migration and its
+SELECT/INSERT/DELETE grant before starting the new image. Old stateless cookies
+will require a fresh sign-in. The updated deployment smoke checks all four
+forced-RLS tables and rejects legacy cookies; actual Google login plus browser
+revocation must still be accepted after the owner handoff. The local database
+test covers valid registered sessions without writing synthetic users to the
+production database. Do not start/bootstrap/reconfigure the host until the
+parent assigns the exact release scope and shared-host slot.

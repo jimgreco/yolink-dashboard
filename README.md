@@ -11,7 +11,7 @@ A responsive, read-only YoLink dashboard for Manhattan and East Hampton. The loc
 
 ## Architecture
 
-The single Node 22 container serves the web UI and `GET /api/v1/dashboard`. Google OpenID Connect code flow uses state, PKCE, nonce, signed ID token validation, and an eight-hour HttpOnly/Secure/SameSite cookie. Only the configured owner's verified Google account can sign in. The owner restriction is also enforced on each session or native-token request; PostgreSQL row-level security independently scopes queries to the owner's subject. A later personal iOS app can use a separately configured Google native client audience, but native sign-in and end-to-end device acceptance remain unbuilt and unverified.
+The single Node 22 container serves the web UI and `GET /api/v1/dashboard`. Google OpenID Connect code flow uses state, PKCE, nonce, signed ID token validation, and an eight-hour HttpOnly/Secure/SameSite cookie backed by a hashed, owner-scoped PostgreSQL session record. Only the configured owner's verified Google account can sign in. The owner restriction is also enforced on each session or native-token request; PostgreSQL row-level security independently scopes queries to the owner's subject. A later personal iOS app can use a separately configured Google native client audience, but native sign-in and end-to-end device acceptance remain unbuilt and unverified.
 
 Each personal YoLink connection and cached snapshot belongs to the owner's Google subject. The private setup helper encrypts credentials with AES-256-GCM and binds them to the owner and connection; its key stays outside the database and container image. No HTTP credential-entry or connection-creation route exists. Setup discovers the actual YoLink Home ID and rechecks it before storage; every poll verifies that same ID. If both houses share one YoLink Home, device assignments split its single connection into Manhattan/East Hampton; newly discovered unmapped devices appear under Unassigned. A second credential is needed only for a distinct actual YoLink Home.
 
@@ -36,3 +36,50 @@ The user approved the bounded EC2 deployment, DNS/proxy changes, database/role c
 `GET /api/health` is a non-sensitive process health response. `GET /api/v1/dashboard` returns only the signed-in user's normalized device data, timestamps, errors, and connection status. Both are read-only. The dashboard refreshes its own API every minute; the optional personal UAC adapter polls at most once per five minutes per connection. The production database is provisioned and its row isolation has been checked using rolled-back synthetic records. No YoLink data has been fetched, and no public HTTPS deployment or real Google login has been verified.
 
 Official references: [UAC setup](https://doc.yosmart.com/docs/overall/qsg_uac/), [home methods](https://doc.yosmart.com/docs/account/Home/), [leak sensor state](https://doc.yosmart.com/docs/yolinkapi/LeakSensor/), [YoSmart OAuth app setup](https://doc.yosmart.com/docs/overall/qsg_csid/).
+
+## Session and refresh readiness — October 7, 2026
+
+Prepared locally, not deployed. Browser sign-out is now a same-origin POST and
+revokes the stored session before clearing its cookie. **Sign out all browsers**
+revokes every browser session for the owner; it does not revoke Google consent,
+YoLink credentials, or optional native Google bearer tokens. Replayed and legacy
+stateless cookies are rejected, including after another server instance revokes
+the record. Existing cookies must sign in again after this release. A dedicated
+signed-out page avoids immediately starting another Google login.
+
+Apply additive migration `db/003_browser_sessions.sql` only to
+`yolink_dashboard`, then grant the existing restricted role SELECT/INSERT/DELETE
+on `dashboard_sessions` as specified by `deploy/bootstrap.py`. Forced row-level
+security scopes this table like the existing owner data. Startup and health
+verify the sessions table and SELECT grant; database queries are time bounded. Never roll back to the
+old stateless-cookie image after accepting this session contract; prepare a
+forward fix or stop only this service. No encryption/session secret rotation is
+needed. The table stores hashes, not raw browser tokens.
+
+Refreshes have a 120-second overall provider deadline inside the existing
+five-minute database claim. Concurrent stores cannot claim the same interval;
+late results are discarded after disable, credential replacement, a changed verified Home or a newer
+claim. Transient provider failures preserve cached alerts; a Home-ID mismatch
+clears cached data. Safe structured events describe request/login failures,
+session revocation, and refresh outcomes with duration/device counts. They do
+not contain account/device names, subjects, credentials, OAuth codes, URLs or
+raw errors. This remains an on-demand dashboard: no background leak monitor or
+real notification service has been enabled.
+
+Both private handoff helpers now use `.ssh/ec2-deploy-20261004` with strict host
+checking. Their hidden input/explicit CONNECT/SAVE confirmation remains intact.
+The host currently has no running YoLink container. The private environment file
+exists with mode 0600; its contents were not read. Google credential presence,
+owner configuration, public HTTPS and real login still require handoff/acceptance.
+The current personal route is documented by [YoSmart](https://doc.yosmart.com/docs/overall/qsg_uac/)
+and is Home-scoped; commercial registration is unnecessary for this design.
+
+Local validation: `npm run check` passes 20 tests when
+`HOME_WATCH_TEST_DATABASE_URL` names a fresh loopback-only database whose name
+begins `home_watch_test_`. This includes actual PostgreSQL migrations and forced
+RLS, two-store session revocation, concurrent refresh claims, failed reads,
+Home-ID mismatch, disabled connections and credential replacement. The database
+test skips when its explicit local fixture URL is absent; it refuses nonlocal
+hosts or production-like database names. Browser fixture inspection covers
+390-pixel phone width and both sign-out controls. No real Google or YoLink call
+was made by these tests.

@@ -11,7 +11,7 @@ import warnings
 def send(payload):
     result = subprocess.run([
         "ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=10",
-        "-i", str(Path.home() / "code/consolidated-apps-key.pem"), "ec2-user@18.219.163.101",
+        "-i", str(Path.home() / ".ssh/ec2-deploy-20261004"), "ec2-user@18.219.163.101",
         "python3 ~/yolink-dashboard/personal-setup.py",
     ], input=json.dumps(payload), capture_output=True, text=True, timeout=100)
     if result.returncode:

@@ -327,11 +327,15 @@ function render() {
   renderHomes(homes);
 }
 
+let loading = false;
 async function load() {
+  if (loading) return;
+  loading = true;
   try {
     const response = await fetch("/api/v1/dashboard", {
       cache: "no-store",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(15000),
     });
     if (response.status === 401) {
       location.assign("/auth/start");
@@ -351,7 +355,7 @@ async function load() {
     byId("homes").replaceChildren();
     byId("freshness-title").textContent = "Unable to load";
     byId("freshness-detail").textContent = "No current device information";
-  }
+  } finally { loading = false; }
 }
 
 document.querySelectorAll("[data-filter]").forEach((button) =>

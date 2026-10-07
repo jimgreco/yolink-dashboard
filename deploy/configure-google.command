@@ -19,7 +19,7 @@ try:
         result = subprocess.run([
             "ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
             "-o", "ConnectTimeout=10", "-i",
-            str(pathlib.Path.home() / "code/consolidated-apps-key.pem"),
+            str(pathlib.Path.home() / ".ssh/ec2-deploy-20261004"),
             "ec2-user@18.219.163.101", "python3 ~/yolink-dashboard/install-google.py"
         ], stdin=source, timeout=30)
     sys.exit(result.returncode)

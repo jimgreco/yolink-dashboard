@@ -122,3 +122,12 @@ test("poll uses only read methods and strips net tokens from normalized output",
   assert.equal(home.devices[0].reading, "Dry");
   assert.equal(JSON.stringify(home).includes("net-secret"), false);
 });
+
+
+test("refresh cycle deadline prevents further provider calls", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  let calls = 0;
+  await assert.rejects(pollHome({expectedHomeId:"synthetic"}, null, async()=>{calls++}, {signal:controller.signal}));
+  assert.equal(calls,0);
+});

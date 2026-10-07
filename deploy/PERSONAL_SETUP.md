@@ -24,7 +24,7 @@ not a replacement for YoLink's phone notifications.
 
 1. Finish the existing Google client handoff and HTTPS DNS/proxy setup. No new
    approval is needed for that previously authorized infrastructure scope.
-2. Deploy the owner-restricted image and migration `002_personal_houses.sql`.
+2. Deploy the owner-restricted image and migrations through `003_browser_sessions.sql`, with its restricted session-table grants.
    `bootstrap.py` installs `personal-setup.py` on EC2 but never calls YoLink.
 3. Sign in to `https://yolink.jim-greco.com` as `jgreco@gmail.com` once. This
    records the verified Google subject. The credential helper refuses to run

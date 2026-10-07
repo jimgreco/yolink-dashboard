@@ -8,6 +8,7 @@ import {
   beginLogin,
   completeLogin,
 } from "./lib/auth.mjs";
+import { recordEvent } from "./lib/observability.mjs";
 import { sampleDashboard } from "./lib/sample.mjs";
 import { createStore } from "./lib/store.mjs";
 
@@ -74,12 +75,29 @@ function staticFile(pathname) {
   return { data: readFileSync(join(root, "public", name)), type };
 }
 
-export const server = createServer(async (request, response) => {
+export function createDashboardServer({ mode = "sample", config = null, store = null, fetcher = fetch, emit = recordEvent } = {}) {
+const live = mode === "cloud";
+return createServer(async (request, response) => {
   try {
     const url = new URL(
       request.url,
       live ? config.origin : `http://${host}:${port}`,
     );
+    if (live && ["/auth/logout", "/auth/logout/all"].includes(url.pathname)) {
+      if (request.method !== "POST") return reply(response, 405, "Use the sign-out button");
+      if (request.headers.origin !== config.origin ||
+          (request.headers["sec-fetch-site"] && request.headers["sec-fetch-site"] !== "same-origin"))
+        return reply(response, 403, "Same-origin request required");
+      const identity = await authenticate(request, config, fetcher, store);
+      if (!identity?.sessionId) return reply(response, 401, "Sign-in required");
+      const all = url.pathname === "/auth/logout/all";
+      await store.revokeSession(identity, all);
+      emit("session_revoked", { reason: all ? "all" : "current" });
+      return reply(response, 303, "", "text/plain; charset=utf-8", {
+        location: "/signed-out",
+        "set-cookie": "yl_session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0",
+      });
+    }
     if (request.method !== "GET")
       return reply(response, 405, "Method not allowed");
     if (url.pathname === "/api/health") {
@@ -92,6 +110,9 @@ export const server = createServer(async (request, response) => {
       );
     }
 
+    if (live && url.pathname === "/signed-out") return reply(response, 200,
+      '<!doctype html><html lang="en"><meta charset="utf-8"><title>Signed out</title><p>You are signed out of Home Watch.</p><a href="/auth/start">Sign in</a></html>',
+      "text/html; charset=utf-8");
     if (live && url.pathname === "/auth/start") {
       const login = beginLogin(config);
       return reply(response, 302, "", "text/plain; charset=utf-8", {
@@ -104,7 +125,7 @@ export const server = createServer(async (request, response) => {
         const sessionCookie = await completeLogin(
           url,
           request.headers.cookie,
-          config,
+          config, fetcher, store,
         );
         return reply(response, 302, "", "text/plain; charset=utf-8", {
           location: "/",
@@ -114,6 +135,7 @@ export const server = createServer(async (request, response) => {
           ],
         });
       } catch {
+        emit("login_rejected");
         return reply(
           response,
           403,
@@ -121,14 +143,7 @@ export const server = createServer(async (request, response) => {
         );
       }
     }
-    if (live && url.pathname === "/auth/logout") {
-      return reply(response, 302, "", "text/plain; charset=utf-8", {
-        location: "/auth/start",
-        "set-cookie":
-          "yl_session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0",
-      });
-    }
-    const identity = live ? await authenticate(request, config) : null;
+    const identity = live ? await authenticate(request, config, fetcher, store) : null;
     if (live && !identity) {
       if (url.pathname.startsWith("/api/"))
         return reply(
@@ -159,12 +174,18 @@ export const server = createServer(async (request, response) => {
       );
     }
     const asset = staticFile(url.pathname);
-    if (asset) return reply(response, 200, asset.data, asset.type);
+    if (asset) return reply(response, 200, asset.data, asset.type,
+      // Same-origin forms need a non-opaque Origin. OAuth callback responses
+      // retain no-referrer; this page policy never sends a referrer off-origin.
+      url.pathname === "/" ? { "referrer-policy": "same-origin" } : {});
     return reply(response, 404, "Not found");
   } catch {
+    emit("request_failed");
     if (!response.headersSent) reply(response, 503, "Service unavailable");
   }
 });
+}
+export const server = createDashboardServer({ mode, config, store });
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   server.listen(port, host, () => {

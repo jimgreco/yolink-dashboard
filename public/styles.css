@@ -188,7 +188,10 @@ button {
   margin-right: 5px;
   font-size: 0.55rem;
 }
+#signout { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+#signout[hidden] { display: none; }
 .signout {
+  border: 0; padding: 5px 0; background: transparent; cursor: pointer; font-family: inherit; text-decoration: underline;
   font-size: 0.79rem;
   color: #536775;
 }
@@ -937,4 +940,11 @@ h3 {
 .issue-tag.unknown {
   color: #617782;
   background: #eff3f5;
+}
+
+@media (max-width: 620px) {
+  .topbar { height: auto; min-height: 64px; flex-wrap: wrap; gap: 10px; padding-top: 12px; padding-bottom: 12px; }
+  .topbar-right { display: contents; }
+  #signout { flex-basis: 100%; gap: 20px; }
+  .signout { white-space: nowrap; }
 }
