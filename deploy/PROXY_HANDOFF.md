@@ -1,9 +1,12 @@
 # Private owner handoff for Nginx HTTPS
 
 Prepared against the installed Nginx Proxy Manager 2.14.0 public API schemas and
-source. The owner created the Cloudflare `nginx.jim-greco.com` A record on
-October 8. Authoritative DNS confirms Cloudflare-proxied answers. HTTPS still
-returns 525 until the origin certificate and admin route are configured.
+source. The owner completed the scoped setup on October 8, 2026. Public and
+origin HTTPS return 200 for `nginx.jim-greco.com`, using its valid dedicated
+certificate. Both hosts force HTTPS; the YoLink callback suppresses access and
+error logging in its dedicated location. YoLink health returns 200, signed-out
+dashboard requests return 401, and existing port-81 access still returns 200.
+The shared proxy window was released after read-only verification.
 
 ## Exact changes
 

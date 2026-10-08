@@ -1,8 +1,12 @@
 # Owner-executed YoLink activation handoff
 
-This procedure is prepared locally. It has not read production private
-configuration, uploaded a recovery object, or connected a live YoLink Home.
-The displayed October 8 activation approval remains pending.
+Jim completed this approved procedure before and after connecting both YoLink
+Homes on October 8, 2026. The assistant verified metadata for both complete
+backup sets: all three objects have AES256 encryption, versions and SHA-256
+checksums in the protected existing bucket. The second set was created after
+both Home connections were saved. Private object bodies and configuration
+values were not inspected by the assistant. This does not establish a full
+database restore rehearsal or ongoing scheduled backup coverage.
 
 ## Execution boundary
 
@@ -41,7 +45,7 @@ configuration, Terminal screenshots, or downloaded secret files into chat.
   downloaded into memory and checked again. This is archive verification,
   **not a database restore rehearsal** or scheduled ongoing backup coverage.
 
-## After the existing bundle is approved
+## Approved activation sequence
 
 1. Finish the scoped admin HTTPS and YoLink callback/origin HTTPS settings in
    the coordinated proxy window. Keep port-81 access unchanged. DNS and any
