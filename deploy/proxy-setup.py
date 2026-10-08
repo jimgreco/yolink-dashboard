@@ -165,7 +165,7 @@ def configure(api, progress):
     if certificate_id is None:
         certificate_id = valid_certificate(api.call("POST", "/api/nginx/certificates", {
             "provider": "letsencrypt", "domain_names": [ADMIN],
-            "meta": {"letsencrypt_email": "jgreco@gmail.com", "letsencrypt_agree": True, "dns_challenge": False}}))
+            "meta": {"dns_challenge": False}}))
     progress["admin_certificate_id"] = certificate_id
 
     progress["phase"] = "admin_proxy"

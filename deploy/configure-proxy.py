@@ -18,7 +18,7 @@ def main():
     print("Changes: nginx.jim-greco.com HTTPS admin route/certificate; YoLink forced HTTPS,")
     print("no caching, and callback access/error log suppression. Port 81 remains unchanged.")
     print("Nginx performs its normal configuration reloads; no container is restarted.")
-    print("The certificate uses jgreco@gmail.com and requires your acceptance of Let's Encrypt's")
+    print("The certificate uses your existing Nginx account email and requires acceptance of Let's Encrypt's")
     print("current Subscriber Agreement: https://letsencrypt.org/repository/")
     print("Continue only during the coordinated proxy configuration window.")
     if input("To approve this exact setup and the certificate terms, type SETUP: ").strip() != "SETUP":

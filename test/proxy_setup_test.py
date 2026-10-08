@@ -17,6 +17,15 @@ def load(name, file):
 
 remote = load("proxy_setup", "proxy-setup.py")
 local = load("configure_proxy", "configure-proxy.py")
+CERTIFICATE_META_SCHEMA = json.loads((Path(__file__).parent / "fixtures/npm-certificate-meta-2.14.json").read_text())
+
+
+def certificate_metadata_contract(data):
+    # Authoritative installed API contract, independent of the helper payload.
+    assert CERTIFICATE_META_SCHEMA["additionalProperties"] is False
+    assert not (set(data) - set(CERTIFICATE_META_SCHEMA["properties"]))
+    if "dns_challenge" in data:
+        assert type(data["dns_challenge"]) is bool
 
 
 def host(identifier=12, domain=remote.YOLINK, target="yolink-dashboard", port=4318):
@@ -58,8 +67,9 @@ class FakeAPI:
             return copy.deepcopy(self.certificates)
         if path == "/api/nginx/certificates":
             assert method == "POST"
+            certificate_metadata_contract(data["meta"])
             assert data == {"provider": "letsencrypt", "domain_names": [remote.ADMIN],
-                            "meta": {"letsencrypt_email": "jgreco@gmail.com", "letsencrypt_agree": True, "dns_challenge": False}}
+                            "meta": {"dns_challenge": False}}
             if self.fail_certificate:
                 raise remote.Stop("api_http_504")
             self.certificates = [{"id": 24, "domain_names": [remote.ADMIN], "provider": "letsencrypt", "expires_on": "2099-01-01 00:00:00"}]
@@ -79,6 +89,11 @@ class FakeAPI:
 
 
 class ProxySetupTests(unittest.TestCase):
+    def test_installed_contract_rejects_obsolete_certificate_metadata(self):
+        for field, value in (("letsencrypt_email", "owner@example.invalid"), ("letsencrypt_agree", True)):
+            with self.assertRaises(AssertionError):
+                certificate_metadata_contract({"dns_challenge": False, field: value})
+
     def test_exact_scoped_updates_create_managed_certificate_and_admin_route(self):
         api = FakeAPI()
         before = copy.deepcopy(api.yolink)

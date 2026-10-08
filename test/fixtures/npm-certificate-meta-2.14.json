@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "certificate": {"type": "string", "minLength": 1},
+    "certificate_key": {"type": "string", "minLength": 1},
+    "dns_challenge": {"type": "boolean"},
+    "dns_provider_credentials": {"type": "string"},
+    "dns_provider": {"type": "string"},
+    "letsencrypt_certificate": {"type": "object"},
+    "propagation_seconds": {"type": "integer", "minimum": 0},
+    "key_type": {"type": "string", "enum": ["rsa", "ecdsa"], "default": "rsa"}
+  }
+}

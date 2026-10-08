@@ -18,7 +18,8 @@ returns 525 until the origin certificate and admin route are configured.
   ```
 
 - Request or reuse a valid, dedicated Let's Encrypt certificate for only
-  `nginx.jim-greco.com`. Use HTTP validation and `jgreco@gmail.com`. Nginx Proxy
+  `nginx.jim-greco.com`. Use HTTP validation and the authenticated NPM account's
+  existing email (selected by NPM 2.14.0 itself). Nginx Proxy
   Manager owns the certificate and its normal renewal process.
 - Add the HTTPS admin proxy `nginx.jim-greco.com` → `http://127.0.0.1:81`, with
   Force SSL, caching off and the existing NPM login still required. An existing
@@ -66,3 +67,9 @@ concurrent edits, certificate failure, normal optional two-factor authentication
 cancellation and required owner confirmation. They perform no network calls,
 credential collection or production mutations. No live configuration run is
 claimed by these tests.
+
+The certificate metadata contract fixture is copied from the installed public
+`/app/schema/components/certificate-object.json` schema. NPM 2.14.0 rejects the
+obsolete `letsencrypt_email` and `letsencrypt_agree` metadata fields; the helper
+must not send them. Owner consent to the terms is collected locally, while NPM
+uses the authenticated account email for its certificate request.
