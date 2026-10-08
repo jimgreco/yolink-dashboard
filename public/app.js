@@ -1,4 +1,5 @@
 import { deviceFreshness } from "/status.js";
+import { climateView } from "/climate.js";
 const byId = (id) => document.getElementById(id);
 const make = (tag, className, value) => {
   const node = document.createElement(tag);
@@ -28,6 +29,11 @@ function timeAgo(iso) {
 
 function issues(device) {
   const result = [];
+  if (device.type === "THSensor") {
+    const climate = climateView(device);
+    if (climate.alerts.length)
+      result.push({ kind: "alert", label: "Sensor alert", detail: climate.alerts.join(" · "), symbol: "!" });
+  }
   if (device.leaking)
     result.push({
       kind: "alert",
@@ -46,7 +52,7 @@ function issues(device) {
     result.push({
       kind: "battery",
       label: "Low battery",
-      detail: `${device.batteryBars} of 4 bars`,
+      detail: device.batteryBars === null ? "Device reported a low battery alarm" : `${device.batteryBars} of 4 bars`,
       symbol: "▰",
     });
   if (!device.stateAvailable && device.online !== false)
@@ -75,7 +81,7 @@ function displayKind(type) {
     {
       LeakSensor: "Leak sensor",
       DoorSensor: "Door sensor",
-      THSensor: "Temperature sensor",
+      THSensor: "Temperature & humidity",
       GarageDoor: "Garage door",
       Hub: "Hub",
       CellularHub: "Cellular hub",
@@ -160,7 +166,8 @@ function matches(device) {
 function renderDevice(device) {
   const freshness = deviceFreshness(device);
   const current = !freshness.reportStale && !freshness.checkStale && !freshness.reportUnknown;
-  const row = make("div", "device-row");
+  const climate = device.type === "THSensor" ? climateView(device) : null;
+  const row = make("div", `device-row${climate ? " climate-row" : ""}`);
   const identity = make("div", "device-name-wrap");
   const icon = make(
     "span",
@@ -171,6 +178,8 @@ function renderDevice(device) {
         ? "HUB"
         : device.kind === "entry"
           ? "ENT"
+          : climate
+            ? "°"
           : "DEV",
   );
   icon.setAttribute("aria-hidden", "true");
@@ -200,7 +209,22 @@ function renderDevice(device) {
         : !current
           ? `Last report: ${device.reading || "Available"}`
           : device.reading || "Available";
-  append(reading, make("span", "status-dot"), make("span", "", statusText));
+  if (climate) {
+    reading.className = "device-reading climate-reading";
+    const metrics = make("div", "climate-metrics");
+    const temp = make("div", "climate-metric");
+    append(temp, make("span", "metric-label", "Temperature"),
+      make("strong", "metric-value", climate.temperature.primary),
+      make("span", "metric-unit", climate.temperature.secondary));
+    const humidity = make("div", "climate-metric");
+    append(humidity, make("span", "metric-label", "Humidity"),
+      make("strong", "metric-value", climate.humidity),
+      make("span", "metric-unit", climate.humidity === "—" ? "Not reported" : "Relative humidity"));
+    append(metrics, temp, humidity);
+    append(reading, metrics, make("div", `climate-status${climate.current ? "" : " unknown"}`, climate.status));
+  } else {
+    append(reading, make("span", "status-dot"), make("span", "", statusText));
+  }
   const battery = make(
     "div",
     `battery-cell ${device.lowBattery ? "low" : device.batteryBars === null ? "none" : ""}`,
@@ -216,6 +240,14 @@ function renderDevice(device) {
       : "Report time unknown",
   );
   append(row, identity, reading, battery, reported);
+  if (climate) {
+    const details = make("div", "climate-details");
+    append(details, make("span", "climate-connectivity", climate.connectivity),
+      make("span", climate.alerts.length ? "climate-alarm active" : "climate-alarm", climate.alarmStatus));
+    for (const [label, value] of climate.details)
+      details.append(make("span", "climate-range", `${label}: ${value}`));
+    row.append(details);
+  }
   return row;
 }
 

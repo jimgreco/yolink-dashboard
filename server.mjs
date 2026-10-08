@@ -65,6 +65,8 @@ function staticFile(pathname) {
           ? "styles.css"
           : pathname === "/status.js"
             ? "status.js"
+          : pathname === "/climate.js"
+            ? "climate.js"
           : null;
   if (!name) return null;
   const type = name.endsWith(".html")

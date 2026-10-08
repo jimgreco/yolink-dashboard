@@ -1,13 +1,13 @@
 # Home Watch
 
-A responsive, read-only YoLink dashboard for Manhattan and East Hampton. The local preview uses **illustrative sample data**. It has never been connected to Jim's YoLink account.
+A responsive, owner-only, read-only YoLink dashboard for Manhattan and East Hampton. Both real Homes were connected by Jim on October 8, 2026. The local preview uses **illustrative sample data** and never contacts his account.
 
 ## Current state
 
 - `npm run dev` starts sample mode on `127.0.0.1:4318`. Sample mode never reads credentials or calls YoLink.
 - `npm run check` checks JavaScript syntax and runs the focused tests.
-- `YOLINK_MODE=cloud` is the deployment mode. It requires Google sign-in, a dedicated PostgreSQL database, and server-held encryption/session secrets. It fails closed when these are absent. The dedicated database and server secrets are provisioned on the shared EC2 host; public service startup awaits the Google credential handoff and HTTPS route.
-- This is Jim's private dashboard. `OWNER_GOOGLE_EMAIL` is required in cloud mode; other Google users are rejected, including previously signed sessions. Personal UAC setup is available only through a user-run SSH helper. No UAC has been created, read, or used. Commercial OAuth/API registration is not part of this project.
+- `YOLINK_MODE=cloud` is the deployment mode. It requires Google sign-in, a dedicated PostgreSQL database, and server-held encryption/session secrets. It fails closed when these are absent. The dedicated database and server secrets are provisioned on the shared EC2 host; owner Google login and the public HTTPS route have been verified.
+- This is Jim's private dashboard. `OWNER_GOOGLE_EMAIL` is required in cloud mode; other Google users are rejected, including previously signed sessions. Personal UAC setup is available only through a user-run SSH helper. Jim privately submitted one UAC for each distinct Home; both are stored encrypted and have completed normal read-only dashboard refreshes. Commercial OAuth/API registration is not part of this project.
 
 ## Architecture
 
@@ -21,25 +21,25 @@ The personal UAC adapter calls only `Home.getGeneralInfo`, `Home.getDeviceList`,
 
 The existing `/Users/jgreco/code/deploy` stack runs PostgreSQL 16 and Nginx Proxy Manager. Deployment uses an isolated Compose project on its existing internal network. Progress and remaining steps:
 
-1. **Prepared:** isolated `yolink_dashboard` database, restricted `yolink_dashboard_app` role, and [migration](db/001_initial.sql). The app pool and role are capped at three connections. No other app database is used.
-2. **Prepared:** separate `yolink-dashboard` Compose project on the internal network, exposed only to the proxy at port 4318, with an exact-commit ARM64 image. It is limited to 128 MiB and 0.35 CPU. The public service has not been started.
-3. **Pending:** HTTPS proxy host and DNS record for `yolink.jim-greco.com`. `PUBLIC_ORIGIN` is configurable for a later custom domain.
-4. **User handoff pending:** dedicated Google OAuth web client authorized for `https://yolink.jim-greco.com/auth/callback`, using only `openid email`. Generated session/encryption/database secrets already reside in `~/yolink-dashboard/private/runtime.env` on EC2 (0600 file, 0700 directory). The [setup helper and runbook](deploy/README.md) securely install the user-selected Google client download over SSH without showing its secret to the agent.
-5. **Separate approval and user handoff pending:** personal YoLink setup using the [private setup instructions](deploy/PERSONAL_SETUP.md). Until completed, the owner sees a clearly disconnected view with no sample household data.
+1. **Verified:** isolated `yolink_dashboard` database, restricted `yolink_dashboard_app` role, and [migration](db/001_initial.sql). The app pool and role are capped at three connections. No other app database is used.
+2. **Running:** separate `yolink-dashboard` Compose project on the internal network, exposed only to the proxy at port 4318, with an exact-commit ARM64 image. It is limited to 128 MiB and 0.35 CPU. Only this isolated application container is running for Home Watch.
+3. **Verified:** HTTPS proxy host and DNS record for `yolink.jim-greco.com`. `PUBLIC_ORIGIN` is configurable for a later custom domain.
+4. **Owner handoff completed:** dedicated Google OAuth web client authorized for `https://yolink.jim-greco.com/auth/callback`, using only `openid email`. Generated session/encryption/database secrets already reside in `~/yolink-dashboard/private/runtime.env` on EC2 (0600 file, 0700 directory). The [setup helper and runbook](deploy/README.md) securely install the user-selected Google client download over SSH without showing its secret to the agent.
+5. **Owner handoff completed:** two separate personal YoLink Homes using the [private setup instructions](deploy/PERSONAL_SETUP.md). The first checks returned state data for 5 Manhattan and 11 East Hampton devices. Owner-run encrypted recovery backups were completed before and after connection; object metadata was independently verified. This is not a full restore rehearsal or ongoing scheduled backup coverage.
 
-The user approved the bounded EC2 deployment, DNS/proxy changes, database/role creation, Google OAuth configuration, and server-only key generation/storage on September 30. Capacity and proxy conflicts were checked before provisioning; existing services were not restarted. Live YoLink credential handling still needs its separate approved setup. Existing PostgreSQL has had connection-capacity pressure, which is why this service has a small pool and no background worker.
+The user approved the bounded EC2 deployment, DNS/proxy changes, database/role creation, Google OAuth configuration, and server-only key generation/storage on September 30. Capacity and proxy conflicts were checked before provisioning; existing services were not restarted. The separately approved Google and personal YoLink handoffs were completed by Jim on October 7–8. Existing PostgreSQL has had connection-capacity pressure, which is why this service has a small pool and no background worker.
 
-**Secret-entry handoff:** no credential belongs in chat, Git, logs, sample fixtures, or browser JavaScript. After explicit personal-UAC approval, Jim creates the personal credential in his YoLink app and enters it himself in `deploy/configure-yolink.command`. Hidden Terminal fields submit over SSH to his EC2 server; the helper never writes the UAC to a local file. Jim reviews the actual Home inventory and house assignments before typing SAVE. This helper has been tested only with synthetic credentials; do not run it on Jim's credentials until the separate action-time approval and user handoff.
+**Secret-entry handoff:** no credential belongs in chat, Git, logs, sample fixtures, or browser JavaScript. After explicit personal-UAC approval, Jim creates the personal credential in his YoLink app and enters it himself in `deploy/configure-yolink.command`. Hidden Terminal fields submit over SSH to his EC2 server; the helper never writes the UAC to a local file. Jim reviews the actual Home inventory and house assignments before typing SAVE. The assistant does not enter, submit, or inspect these credentials. The approved owner-run handoff remains required for any future connection.
 
 ## API and limitations
 
-`GET /api/health` is a non-sensitive process health response. `GET /api/v1/dashboard` returns only the signed-in user's normalized device data, timestamps, errors, and connection status. Both are read-only. The dashboard refreshes its own API every minute; the optional personal UAC adapter polls at most once per five minutes per connection. The production database is provisioned and its row isolation has been checked using rolled-back synthetic records. No YoLink data has been fetched, and no public HTTPS deployment or real Google login has been verified.
+`GET /api/health` is a non-sensitive process health response. `GET /api/v1/dashboard` returns only the signed-in user's normalized device data, timestamps, errors, and connection status. Both are read-only. The dashboard refreshes its own API every minute; the optional personal UAC adapter polls at most once per five minutes per connection. The production database is provisioned and its row isolation has been checked using rolled-back synthetic records. Public HTTPS, real owner Google login, and the first read-only refresh of both Homes are verified. Comparing displayed readings with the phone app and exercising real-browser logout remain owner acceptance steps.
 
 Official references: [UAC setup](https://doc.yosmart.com/docs/overall/qsg_uac/), [home methods](https://doc.yosmart.com/docs/account/Home/), [leak sensor state](https://doc.yosmart.com/docs/yolinkapi/LeakSensor/), [YoSmart OAuth app setup](https://doc.yosmart.com/docs/overall/qsg_csid/).
 
-## Session and refresh readiness — October 7, 2026
+## Session and refresh release — October 7, 2026
 
-Prepared locally, not deployed. Browser sign-out is now a same-origin POST and
+Deployed as revision `711552bb1b336e6c6d58c7ffb24badefff9f4112`. Browser sign-out is a same-origin POST and
 revokes the stored session before clearing its cookie. **Sign out all browsers**
 revokes every browser session for the owner; it does not revoke Google consent,
 YoLink credentials, or optional native Google bearer tokens. Replayed and legacy
@@ -69,13 +69,13 @@ real notification service has been enabled.
 
 Both private handoff helpers now use `.ssh/ec2-deploy-20261004` with strict host
 checking. Their hidden input/explicit CONNECT/SAVE confirmation remains intact.
-The host currently has no running YoLink container. The private environment file
-exists with mode 0600; its contents were not read. Google credential presence,
-owner configuration, public HTTPS and real login still require handoff/acceptance.
+The isolated YoLink container is healthy. The private environment file exists
+with mode 0600; its contents were not inspected by the assistant. The approved
+owner configuration handoffs, public HTTPS and real Google login are complete.
 The current personal route is documented by [YoSmart](https://doc.yosmart.com/docs/overall/qsg_uac/)
 and is Home-scoped; commercial registration is unnecessary for this design.
 
-Local validation: `npm run check` passes 21 tests (the separate activation
+Historical October 7 validation: `npm run check` passed 21 tests (the separate activation
 fixture test skips in that invocation) when
 `HOME_WATCH_TEST_DATABASE_URL` names a fresh loopback-only database whose name
 begins `home_watch_test_`. This includes actual PostgreSQL migrations and forced
@@ -93,3 +93,23 @@ user `admin`, database `yolink_dashboard`, and database comment
 creates only synthetic users and a restricted test role, and checks atomic guard
 failure, unchanged baseline rows, exact grants, RLS, replay refusal and wrong-DB
 refusal. Never point this test at the shared host.
+
+
+## Temperature and humidity cards — October 8, 2026
+
+The climate release retains the selected measurements from the existing
+`THSensor.getState` response instead of replacing them with its generic
+`normal` status. Cards show temperature in Fahrenheit and Celsius, relative
+humidity, device-reported high/low alarms, configured temperature/humidity alert
+ranges, battery, connectivity and report time. These ranges are sensor settings,
+not observed minimum/maximum history. No new API requests or controls are added.
+Unknown units are labeled; missing/invalid readings remain unknown. Failed checks
+retain prior readings and alarms with explicit last-known labels. A successful
+API check does not make an old device report fresh.
+
+Source contract: [YoLink THSensor state](https://doc.yosmart.com/docs/yolinkapi/THSensor/).
+The new fields fill in after each Home's next normal five-minute refresh claim;
+older cached rows show unavailable measurements until then.
+
+See [the bounded climate release scope](deploy/CLIMATE_RELEASE.md) before
+publication. This section describes the prepared change, not a live release.
