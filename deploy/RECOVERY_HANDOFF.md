@@ -45,7 +45,8 @@ configuration, Terminal screenshots, or downloaded secret files into chat.
 
 1. Finish the scoped admin HTTPS and YoLink callback/origin HTTPS settings in
    the coordinated proxy window. Keep port-81 access unchanged. DNS and any
-   Nginx credential handoff remain separate from this backup launcher.
+   Nginx credential handoff remain separate from this backup launcher; use the
+   [private proxy handoff](PROXY_HANDOFF.md) for those scoped settings.
 2. Jim opens `deploy/backup-recovery.command` in Terminal on his Mac, reviews
    its named destination and sensitive contents, and personally types `BACKUP`.
    It uses the Mac's existing AWS login and existing pinned SSH key; no new
