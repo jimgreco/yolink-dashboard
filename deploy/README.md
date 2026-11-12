@@ -6,20 +6,16 @@ Jim chose personal-only access on October 1. Commercial YoLink OAuth/API access
 is out of scope. Personal UAC creation/use still requires its explicit approval
 and the [private user handoff](PERSONAL_SETUP.md).
 
-The release lives under `~/yolink-dashboard/releases/<git-sha>` on EC2. Its own
-Compose project uses the existing `deploy_default` network and hostname
-`yolink-dashboard:4318`. It has no published host port, a 128 MiB memory limit,
-a 0.35 CPU limit, and a read-only container filesystem. The shared stack's
-Compose file is not changed. The database is `yolink_dashboard`, owned by the
-existing database administrator; the app role has no schema ownership or RLS
-bypass and is limited to three connections.
+The service `yolink-dashboard` runs in the shared `deploy` Compose project
+(profile `yolink`, defined in `~/deploy/yolink.compose.yml` on the host and in
+`jimgreco/consolidated-deploy`), reachable only as `yolink-dashboard:4318` on the
+`deploy_default` network. It has no published host port, a 128 MiB memory limit,
+a 0.35 CPU limit, and a read-only container filesystem. The database is
+`yolink_dashboard`, owned by the existing database administrator; the app role
+has no schema ownership or RLS bypass and is limited to three connections.
 
-For a new empty namespace only, `python3 deploy/bootstrap.py` provisions it.
-The already provisioned October 7 namespace must instead use the exact additive
-[session activation packet](SESSION_ACTIVATION.md) after coordinator approval;
-do not rerun bootstrap for that release.
-The bootstrap refuses a pre-existing database/role unless its own private marker
-exists. Generated database/session/encryption secrets stay in
+The namespace was provisioned once on September 30 (database, role and secrets).
+Generated database/session/encryption secrets stay in
 `~/yolink-dashboard/private/runtime.env` with mode 0600, inside a 0700 directory.
 This file must be included in the owner's encrypted backups before any live
 YoLink connection is added; losing its encryption key makes stored connections
@@ -52,19 +48,32 @@ the user must complete this handoff in their own browser and Terminal.
 
 ## Release and checks
 
-Build an image tagged with the full Git SHA on ARM64 EC2. Store
-`YOLINK_IMAGE=yolink-dashboard:<sha>` in `~/yolink-dashboard/release.env`.
-Validate Compose with `docker-compose --env-file release.env -p yolink-dashboard
--f compose.yaml config --quiet`; never print expanded configuration.
+Releases use the shared [release-tools](https://github.com/jimgreco/release-tools)
+flow, like every other app on the host. Pull requests run
+`.github/workflows/verify.yml`. A push to `main` runs verify, builds the arm64
+image `ghcr.io/jimgreco/yolink-dashboard:<sha>` and releases it with
+`.github/release/server.json`: a verified `pg_dump` of `yolink_dashboard`, then
+only this service is recreated and must report `build == <sha>` from
+`/api/health`, inside the container and at `https://yolink.jim-greco.com/api/health`.
+A failed health check rolls back to the previous image.
 
-Before starting the service, run the image with its private environment,
-`deploy_default` network, and `node --input-type=module` reading `deploy/smoke.mjs`
-on stdin. The probe uses actual database permissions, rolls back all synthetic
-rows, verifies cloud HTTP gating, and never calls Google or YoLink. Its temporary
-Google placeholders are never saved. This is not a real Google login test.
+The release never changes schema. A future migration is still an owner-approved,
+additive step applied before the release that needs it (see
+[session activation](SESSION_ACTIVATION.md) for the pattern).
 
-Start only this Compose project after Google setup, then configure Nginx Proxy
-Manager for `yolink.jim-greco.com` → `http://yolink-dashboard:4318` with a valid
+To recreate the service by hand, reuse the exact `-f` chain recorded on the
+running container (`com.docker.compose.project.config_files`); a bare
+`docker-compose up` in `~/deploy` omits the release override.
+
+Secrets stay in `~/yolink-dashboard/private/runtime.env` (0600, in a 0700
+directory), which the shared Compose service reads as its `env_file`.
+
+The optional `deploy/smoke.mjs` probe runs an image with its private environment
+on `deploy_default` and `node --input-type=module` reading the script on stdin.
+It uses actual database permissions, rolls back all synthetic rows, verifies
+cloud HTTP gating, and never calls Google or YoLink. This is not a real Google login test.
+
+Nginx Proxy Manager routes `yolink.jim-greco.com` → `http://yolink-dashboard:4318` with a valid
 certificate, forced HTTPS, and no caching. Disable access logging for
 `/auth/callback` or log `$uri` without query strings so OAuth codes are not logged.
 The Cloudflare DNS A record points to the existing server `18.219.163.101`.
@@ -73,14 +82,5 @@ the zone's existing TLS mode or use an unrelated hostname's certificate.
 
 Verify public HTTPS, unauthenticated API 401, owner-only Google login, empty disconnected
 state, no sample homes, and existing app health. Browser login and future native
-iOS auth remain separate acceptance tests. Stop/rollback only the YoLink Compose
-project if a release fails; do not restart or prune the shared stack.
+iOS auth remain separate acceptance tests. A failed release rolls back only this service; do not restart or prune the shared stack.
 
-Session release prerequisite: apply the additive sessions migration and its
-SELECT/INSERT/DELETE grant before starting the new image. Old stateless cookies
-will require a fresh sign-in. The updated deployment smoke checks all four
-forced-RLS tables and rejects legacy cookies; actual Google login plus browser
-revocation must still be accepted after the owner handoff. The local database
-test covers valid registered sessions without writing synthetic users to the
-production database. Do not start/bootstrap/reconfigure the host until the
-parent assigns the exact release scope and shared-host slot.

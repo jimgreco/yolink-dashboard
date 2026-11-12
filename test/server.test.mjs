@@ -18,6 +18,9 @@ test("sample server is loopback-ready and labels all dashboard data as sample", 
       ["Manhattan", "East Hampton"],
     );
     assert.equal(response.headers.get("cache-control"), "no-store");
+    const health = await (await fetch(`${base}/api/health`)).json();
+    assert.equal(health.status, "ok");
+    assert.equal(health.build, process.env.APP_BUILD || null);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
