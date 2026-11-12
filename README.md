@@ -19,10 +19,10 @@ The personal UAC adapter calls only `Home.getGeneralInfo`, `Home.getDeviceList`,
 
 ## Shared EC2 deployment
 
-The existing `/Users/jgreco/code/deploy` stack runs PostgreSQL 16 and Nginx Proxy Manager. Deployment uses an isolated Compose project on its existing internal network. Progress and remaining steps:
+The existing `/Users/jgreco/code/deploy` stack runs PostgreSQL 16 and Nginx Proxy Manager. Home Watch runs as the `yolink-dashboard` service of that shared Compose project and releases through the shared [release-tools](https://github.com/jimgreco/release-tools) flow (see [deploy/README.md](deploy/README.md)). Progress and remaining steps:
 
 1. **Verified:** isolated `yolink_dashboard` database, restricted `yolink_dashboard_app` role, and [migration](db/001_initial.sql). The app pool and role are capped at three connections. No other app database is used.
-2. **Running:** separate `yolink-dashboard` Compose project on the internal network, exposed only to the proxy at port 4318, with an exact-commit ARM64 image. It is limited to 128 MiB and 0.35 CPU. Only this isolated application container is running for Home Watch.
+2. **Running:** `yolink-dashboard` service (profile `yolink`) in the shared `deploy` Compose project on the internal network, exposed only to the proxy at port 4318. Every push to `main` builds an exact-commit arm64 GHCR image and releases it after a verified database backup. It is limited to 128 MiB and 0.35 CPU.
 3. **Verified:** HTTPS proxy host and DNS record for `yolink.jim-greco.com`. `PUBLIC_ORIGIN` is configurable for a later custom domain.
 4. **Owner handoff completed:** dedicated Google OAuth web client authorized for `https://yolink.jim-greco.com/auth/callback`, using only `openid email`. Generated session/encryption/database secrets already reside in `~/yolink-dashboard/private/runtime.env` on EC2 (0600 file, 0700 directory). The [setup helper and runbook](deploy/README.md) securely install the user-selected Google client download over SSH without showing its secret to the agent.
 5. **Owner handoff completed:** two separate personal YoLink Homes using the [private setup instructions](deploy/PERSONAL_SETUP.md). The first checks returned state data for 5 Manhattan and 11 East Hampton devices. Owner-run encrypted recovery backups were completed before and after connection; object metadata was independently verified. This is not a full restore rehearsal or ongoing scheduled backup coverage.

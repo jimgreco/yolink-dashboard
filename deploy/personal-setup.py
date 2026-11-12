@@ -36,8 +36,11 @@ def main():
     if len(subjects) != 1 or (env.get("OWNER_GOOGLE_SUB") and env["OWNER_GOOGLE_SUB"] != subjects[0]):
         raise RuntimeError("Sign in to the dashboard with the configured owner Google account before connecting YoLink.")
     payload["ownerSub"] = subjects[0]
-    image = dict(line.split("=", 1) for line in (ROOT / "release.env").read_text().splitlines() if "=" in line)["YOLINK_IMAGE"]
-    if not re.fullmatch(r"yolink-dashboard:[a-f0-9]{40}", image): raise ValueError("unexpected release")
+    # The image of the running release in the shared deploy Compose project.
+    image = subprocess.run(["docker", "ps", "--filter", "label=com.docker.compose.project=deploy",
+                            "--filter", "label=com.docker.compose.service=yolink-dashboard", "--format", "{{.Image}}"],
+                           text=True, capture_output=True, check=True, timeout=15).stdout.strip()
+    if not re.fullmatch(r"ghcr\.io/jimgreco/yolink-dashboard:[a-f0-9]{40}", image): raise ValueError("unexpected release")
     result = subprocess.run(
         ["docker", "run", "--rm", "-i", "--memory=128m", "--cpus=0.35", "--pids-limit=64", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--network", "deploy_default", "--env-file", str(ROOT / "private/runtime.env"), "--entrypoint", "node", image, "/app/lib/personal-setup-cli.mjs"],
         input=json.dumps(payload), text=True, capture_output=True, timeout=90,

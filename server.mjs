@@ -107,7 +107,7 @@ return createServer(async (request, response) => {
       return reply(
         response,
         200,
-        JSON.stringify({ status: "ok", mode }),
+        JSON.stringify({ status: "ok", mode, build: process.env.APP_BUILD || null }),
         "application/json; charset=utf-8",
       );
     }

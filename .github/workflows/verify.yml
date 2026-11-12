@@ -1,0 +1,53 @@
+name: Verify
+
+# Every check that gates a merge or a release. Called by release.yml.
+on:
+  workflow_call:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Two throwaway clusters: the activation test requires an otherwise empty
+    # cluster on a non-default port, separate from the session/RLS test.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: home_watch_test_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d home_watch_test_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      activation:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: yolink_dashboard
+        ports: ["55470:5432"]
+        options: >-
+          --health-cmd "pg_isready -U admin -d yolink_dashboard"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      HOME_WATCH_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/home_watch_test_ci
+      HOME_WATCH_ACTIVATION_TEST_DATABASE_URL: postgresql://admin@127.0.0.1:55470/yolink_dashboard
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Mark the activation fixture database as synthetic
+        run: psql "$HOME_WATCH_ACTIVATION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "COMMENT ON DATABASE yolink_dashboard IS 'ops-activation-synthetic-only'"
+      - name: Syntax checks and tests
+        run: npm run check
+      - name: Deploy helper tests
+        run: python3 -m unittest discover -s test -p '*_test.py'
+      - name: Build image
+        run: docker build --build-arg APP_BUILD=${{ github.sha }} -t yolink-dashboard:verify .
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
