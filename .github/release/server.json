@@ -10,6 +10,5 @@
       "health": ["node", "-e", "fetch('http://127.0.0.1:4318/api/health').then(r=>r.ok?r.json():Promise.reject(new Error('health'))).then(h=>process.exit(h.status==='ok'&&h.mode==='cloud'&&h.build==='{sha}'?0:1)).catch(()=>process.exit(1))"]
     }
   },
-  "backup": { "database": "yolink_dashboard", "require_table": "yolink_connections", "keep": 20 },
-  "public": { "url": "https://yolink.jim-greco.com/api/health", "field": "build", "length": 40, "refuse_backwards": true }
+  "refuse_backwards": true
 }
